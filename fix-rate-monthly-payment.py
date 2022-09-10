@@ -1,44 +1,60 @@
-
-
 from calendar import month
 import math
-
-a = 22250
-
-y = 0.09
-r = y/12
-
-n = 36
-
-interest_range = 60
+import pprint
 
 month_detail_list = {}
-def mortgate_calculater(a, r, n):
+
+
+def mortgate_calculater(principal, apr, length, is_year=False):
     """
-    n: number of months
-    r: APR
-    a: principal
+    :params: length: length of loan time
+    :params: apr: fixed apr rate
+    :params: principal: loan amount
+    :params: is_year: default to False, if given length is year, set to True
     """
-    remain_principal = a
-    r = r/12
-    b = ( (a*r) * math.pow(1+r, n)) / (math.pow(1+r, n) - 1) 
-    print("Monthly payment is {}".format(b))
+    remain_principal = principal
+    monthly_rate = apr / 12
+    number_of_payment = length * 12 if is_year else length
 
-    print("There are {} month, which are {} years to get to the loan amount.".format(round(a / b), round(round(a / b)/12)))
-    y = ( n * a * r * math.pow(1+r, n)) / (math.pow(1+r, n) - 1) - a
-    print("Total interest paid: {}".format(y))
+    # This calculates the monthly payment
+    monthly_payment = ((principal * monthly_rate) \
+                       * math.pow(1 + monthly_rate, number_of_payment)) \
+                      / (math.pow(1 + monthly_rate, number_of_payment) - 1)
 
-    for i in range(n):
-        month_interest = remain_principal * r 
-        remain_principal = remain_principal - (b - month_interest)
-        
-        print("month {}. Payment: ${}. Interest: ${}. Principal: ${}.".format(i + 1, round(b, 2), round(month_interest, 2), round(b - month_interest, 2)))
+    print("Monthly payment is {}".format(monthly_payment))
 
-        month_detail = {}
-        month_detail["payment"] = b
-        month_detail["interest"] = month_interest
-        month_detail["principal"] = b - month_interest 
-        month_detail_list[i] = month_detail
+    print("There are {} month, which are {} years to get to the loan amount.".format(
+        round(remain_principal / monthly_payment),
+        round(round(remain_principal / monthly_payment) / 12)))
+
+    # This calculates the total interest pay with this loan
+    total_interest = (number_of_payment * remain_principal * monthly_rate * \
+                      math.pow(1 + monthly_rate, number_of_payment)) \
+                     / (math.pow(1 + monthly_rate, number_of_payment) - 1) - remain_principal
+    print("Total interest paid: {}".format(total_interest))
+
+    mortgate_details = []
+    interest_pay_so_far = 0
+
+    for i in range(number_of_payment):
+        interest = remain_principal * monthly_rate
+        remain_principal = remain_principal - (monthly_payment - interest)
+        principal_paid = monthly_payment - interest
+        interest_pay_so_far = interest_pay_so_far + interest
+
+        mortgate_month_detail = {
+            'payment': monthly_payment,
+            'interest': interest,
+            'principal_paid': principal_paid,
+            'remaining_principal': remain_principal,
+            'interest_pay_so_far': interest_pay_so_far,
+        }
+
+        mortgate_details.append(mortgate_month_detail)
+        month_detail_list[i] = mortgate_month_detail
+
+    return mortgate_details
+
 
 def sum_interest(start, end):
     """
@@ -55,15 +71,23 @@ def sum_interest(start, end):
     print("Total interest of from month {} to month {} is ${}".format(start, end, round(sum, 2)))
 
 
+def main():
+    # a = 22250,
 
-#mortgate_calculater(22250, 0.075, 12)
-#mortgate_calculater(22250, 0.08, 18)
-mortgate_calculater(577500, 0.0299, 360)
+    # y = 0.09
+    # r = y/ 12
 
-# mortgate_calculater(700000, 0.05, 360)
+    # n = 36
 
-sum_interest(25, 25+12)
+    # interest_range = 60
 
-mortgate_calculater(600000, 0.055, 360)
 
-sum_interest(0, 12)
+    mortgate_details = mortgate_calculater(600000, 0.05, 30, is_year=True)
+
+    for i in range(10):
+        print(f'month: {i + 1}')
+        pprint.pprint(mortgate_details[i])
+
+
+if __name__ == "__main__":
+    main()

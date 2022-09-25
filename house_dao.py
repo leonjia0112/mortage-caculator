@@ -50,10 +50,37 @@ class DaoBaseException(Exception):
     pass
 
 
-class HouseInfoDao:
+class BaseDao:
+
+    @abstractmethod
+    def contains(self, key) -> bool:
+        pass
+
+    @abstractmethod
+    def get_key(self) -> str:
+        pass
+
+    @abstractmethod
+    def get_all(self) -> tuple:
+        pass
+
+    @abstractmethod
+    def get(self, key):
+        pass
+
+    @abstractmethod
+    def update(self, key, value) -> bool:
+        pass
+
+
+class HouseInfoDao(BaseDao):
 
     def __init__(self, house_info):
         self._house_info = self._initialize_house_info()
+        for k, v in house_info.items():
+            if self.contains(k):
+                self._house_info[k] = v
+
         self._generate_key()
 
     def _generate_key(self):
@@ -64,6 +91,7 @@ class HouseInfoDao:
         key_col_string = ",".join(key_col_list)
         base64_key_col_string = base64.b64encode(key_col_string.encode("ascii"))
         self._key = str(base64_key_col_string, 'utf-8')
+        self._house_info['id'] = self._key
         return self._key
 
     def _initialize_house_info(self):
@@ -99,6 +127,17 @@ class HouseInfoDao:
         return True
 
 
+class DaoFactory:
+
+    @classmethod
+    def get_do(cls, do_type, info):
+        if do_type == "house-info":
+            do = HouseInfoDao(info)
+            return do
+
+        return None
+
+
 class BasePersistStoreProvider(ABC):
 
     @abstractmethod
@@ -129,7 +168,11 @@ class BasePersistStoreProvider(ABC):
 class JsonPersistStoreProvider(BasePersistStoreProvider):
     DEFAULT_JSON_PATH = "./json_house_data.json"
 
-    def __init__(self, json_path: str = None):
+    def __init__(self, do_type, json_path: str = None):
+
+        # TODO validate do_type
+        self._do_type = do_type
+
         if json_path is None:
             self._json_path = JsonPersistStoreProvider.DEFAULT_JSON_PATH
         else:
@@ -143,35 +186,67 @@ class JsonPersistStoreProvider(BasePersistStoreProvider):
             json_blob.append(info_raw)
 
         try:
-            with open('dog_breeds.txt', 'w+') as f:
+            with open(self._json_path, 'w+') as f:
                 json.dump(json_blob, f)
                 return True
-        except Exception:
+        except Exception:  # TODO find out what exception needed
             return False
 
     def _fetch(self):
         info_dict = {}
 
-        if
+        if not os.path.exists(self._json_path):
+            print(f'Json file {self._json_path} does not exist.')
+            return info_dict
 
+        try:
+            with open(self._json_path, 'r+') as f:
+                json_list = json.load(f)
+                for i in json_list:
+                    do = DaoFactory.get_do(self._do_type, i)
+                    info_dict[do.get_key()] = do
+                return info_dict
+        except Exception:  # TODO find out what exception needed
+            return {}
 
     def contains(self, info_id):
-        pass
+        info_dict = self._fetch()
+        return info_id in info_dict.keys()
 
-    def add(self, info):
-        pass
+    def add(self, info: BaseDao):
+        info_dict = self._fetch()
+        if self.contains(info.get_key()):
+            return False
+
+        info_dict[info.get_key()] = info
+        return self._commit(info_dict)
 
     def update(self, info):
-        pass
+        info_dict = self._fetch()
+        if self.contains(info.get_key()):
+            info_dict[info.get_key()] = info
+            return self._commit(info_dict)
+
+        return False
 
     def delete(self, info):
-        pass
+        info_dict = self._fetch()
+        if self.contains(info.get_key()):
+            del info_dict[info.get_key()]
+            return self._commit(info_dict)
+
+        return False
 
     def get(self, info_id):
-        pass
+        info_dict = self._fetch()
+        if not self.contains(info_id):
+            return None
+
+        return info_dict[info_id]
 
     def get_all(self):
-        pass
+        info_dict = self._fetch()
+        return info_dict
 
 
 class HouseInfoTest(unittest.TestCase):
@@ -190,6 +265,8 @@ class HouseInfoTest(unittest.TestCase):
             "number-of-unit": 2,
         }
 
-        jp = JsonPersistStoreProvider()
+        jp = JsonPersistStoreProvider("house-info")
         h1_do = HouseInfoDao(h1)
         print(h1_do.get_all())
+
+        jp.add(h1_do)

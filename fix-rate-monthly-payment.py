@@ -176,8 +176,8 @@ def cal_income(house_info, loan_info, extra_principal_paid=None, month=25):
 def main():
 
     house_info = {
-        "price": 1150000.0,
-        "property_tax": 9964,
+        "price": 900000.0,
+        "property_tax": 7007,
         "insurance": 2400,
         "monthly_income":  5500,
         "hoa": 0,

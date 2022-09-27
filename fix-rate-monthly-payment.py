@@ -1,15 +1,34 @@
 from calendar import month
 import math
 import pprint
+from collections import namedtuple
 
 month_detail_list = {}
+
+MortgageDetailSchema = [
+    "month",
+    "payment",
+    "interest",
+    "principal",
+    "remaining_principal",
+    "accumulated_interest"
+]
+
+MortgageDetail = namedtuple("MortgageDetail", MortgageDetailSchema)
+
+
+def get_mortgate_detail_nt(detail_dict: dict) -> MortgageDetail:
+    args = []
+    for k in MortgageDetailSchema:
+        args.append(detail_dict[k])
+    return MortgageDetail(*args)
 
 
 def calculate_mortage_monthly_payment(principal, monthly_rate, number_of_payment):
     monthly_payment = ((principal * monthly_rate) \
                        * math.pow(1 + monthly_rate, number_of_payment)) \
                       / (math.pow(1 + monthly_rate, number_of_payment) - 1)
-    return monthly_payment
+    return round(monthly_payment, 2)
 
 
 def calculate_total_interest_predict(principal, number_of_payment, monthly_rate):
@@ -19,14 +38,14 @@ def calculate_total_interest_predict(principal, number_of_payment, monthly_rate)
                      / (math.pow(1 + monthly_rate, number_of_payment) - 1) - principal
 
 
-def mortgate_calculater(price, down_payment_ammount, apr, length, is_year=False, extra_principal_paid: dict = {}):
+def mortgate_calculater(price, down_payment_amount, apr, length, is_year=False, extra_principal_paid: dict = {}):
     """
     :params: length: length of loan time
     :params: apr: fixed apr rate
     :params: principal: loan amount
     :params: is_year: default to False, if given length is year, set to True
     """
-    remain_principal = price - down_payment_ammount
+    remain_principal = price - down_payment_amount
     print(f'Down Payment: {price - remain_principal}')
     monthly_rate = (apr / 100) / 12
     number_of_payment = length * 12 if is_year else length
@@ -36,16 +55,9 @@ def mortgate_calculater(price, down_payment_ammount, apr, length, is_year=False,
     the_nth_month = 1
 
     while number_of_payment > 0:
-        # This calculates the monthly payment
-        monthly_payment = ((remain_principal * monthly_rate) \
-                           * math.pow(1 + monthly_rate, number_of_payment)) \
-                          / (math.pow(1 + monthly_rate, number_of_payment) - 1)
-
-        # print("Monthly payment is {}".format(monthly_payment))
-
-        interest_paid = remain_principal * monthly_rate
-        principal_paid = monthly_payment - interest_paid
-
+        monthly_payment = calculate_mortage_monthly_payment(remain_principal, monthly_rate, number_of_payment)
+        interest_paid = round(remain_principal * monthly_rate, 2)
+        principal_paid = round(monthly_payment - interest_paid, 2)
         remain_principal = remain_principal - principal_paid - extra_principal_paid.get(the_nth_month, 0)
         principal_paid = monthly_payment - interest_paid
         interest_pay_so_far = interest_pay_so_far + interest_paid
@@ -92,7 +104,7 @@ def net_operating_income(liability: dict, income: int):
     assert 'property_tax' in liability
     assert 'insurance' in liability
 
-    yearly_income = income
+    monthly_income = income
 
     total_expense = 0
     total_expense += liability['monthly_mortgage_payment']
@@ -100,7 +112,9 @@ def net_operating_income(liability: dict, income: int):
     total_expense += liability['property_tax'] / 12
     total_expense += liability['insurance'] / 12
 
-    return yearly_income - total_expense
+    return monthly_income - total_expense
+
+
 #
 # def table_output(content: list[dict]):
 #     if len(content) == 0:
@@ -115,10 +129,11 @@ def net_operating_income(liability: dict, income: int):
 
 def table_output(content_list, title_list):
     n_col = len(title_list)
-    row_format = "{:>15}" * n_col
+    row_format = "{:>16}" * n_col
     print(row_format.format(*title_list))
     for c in content_list:
         print(row_format.format(*c))
+
 
 def cal_income(house_info, loan_info, extra_principal_paid=None, month=25):
     if extra_principal_paid is None:
@@ -146,6 +161,7 @@ def cal_income(house_info, loan_info, extra_principal_paid=None, month=25):
     accumulated_NOI = 0
     res_list = []
     yearly_NOI = 0
+
     for i in range(1, month):
 
         # print(f'month: {i}')
@@ -164,38 +180,39 @@ def cal_income(house_info, loan_info, extra_principal_paid=None, month=25):
         # print(f'monthly_NOI: {monthly_NOI}')
         # print(f'accumulated_NOI: {accumulated_NOI}')
         if i % 12 == 0:
-            print(accumulated_NOI - yearly_NOI)
+            yearly_NOI_output = round(accumulated_NOI - yearly_NOI, 2)
             yearly_NOI = accumulated_NOI
+            res_element = [i, monthly_NOI, accumulated_NOI, md['payment'], yearly_NOI_output]
+        else:
+            res_element = [i, monthly_NOI, accumulated_NOI, md['payment'], 0]
 
-        res_element = [i, monthly_NOI, accumulated_NOI]
         res_list.append(res_element)
 
     return res_list
 
 
 def main():
-
     house_info = {
         "price": 900000.0,
-        "property_tax": 7007,
+        "property_tax": 8713,
         "insurance": 2400,
-        "monthly_income":  5500,
+        "monthly_income": 5300,
         "hoa": 0,
     }
 
     loan_info = {
-        "interest_rate": 5.0,
-        "down_payment_amout": 100000,
+        "interest_rate": 5.75,
+        "down_payment_amout": 30000,
         "loan_time": 30,
         "down_payment_type": 'amount',
         "down_payment_percent": 0,
     }
 
     extra_principal_paid = {
+        2: 50000,
         3: 50000,
         4: 50000,
         5: 50000,
-        6: 50000,
         9: 50000,
         10: 50000,
         11: 50000,
@@ -210,10 +227,13 @@ def main():
     col_list = [
         'month',
         'monthly NOI',
-        'acc NOI',
+        'accumulated NOI',
+        'monthly_payment',
+        'yearly NOI'
     ]
 
     table_output(res_list, col_list)
+
 
 if __name__ == "__main__":
     main()

@@ -1,3 +1,4 @@
+import json
 from calendar import month
 import math
 import pprint
@@ -17,6 +18,23 @@ MortgageDetailSchema = [
 MortgageDetail = namedtuple("MortgageDetail", MortgageDetailSchema)
 
 
+#
+# house_info_schema = ["price",
+#                      "property-tax",
+#                      "insurance",
+#                      "maintenance",
+#                      "utility",
+#                      "hoa",
+#                      ]
+#
+
+# HouseInfo = namedtuple("HouseInfo", house_info_schema)
+
+
+def factory(type, data_dict):
+    pass
+
+
 def get_mortgate_detail_nt(detail_dict: dict) -> MortgageDetail:
     args = []
     for k in MortgageDetailSchema:
@@ -25,6 +43,8 @@ def get_mortgate_detail_nt(detail_dict: dict) -> MortgageDetail:
 
 
 def calculate_mortage_monthly_payment(principal, monthly_rate, number_of_payment):
+    assert principal != 0
+
     monthly_payment = ((principal * monthly_rate) \
                        * math.pow(1 + monthly_rate, number_of_payment)) \
                       / (math.pow(1 + monthly_rate, number_of_payment) - 1)
@@ -38,6 +58,68 @@ def calculate_total_interest_predict(principal, number_of_payment, monthly_rate)
                      / (math.pow(1 + monthly_rate, number_of_payment) - 1) - principal
 
 
+def get_interest(principal, apr):
+    month_rate = apr / 12.0
+    return principal * month_rate
+
+
+def get_heloc_monthly_summary(payment, payment_interest, accumulated_interest, remaining_principal):
+    return {
+        'payment': payment,
+        'payment_interest': payment_interest,
+        'payment_principal': payment - payment_interest,
+        'remaining_principal': remaining_principal,
+        'accumulated_interest': accumulated_interest,
+    }
+
+
+def heloc_calculater(credit_line, rate, line_schedule, draw_years, repay_years, rate_predict_override):
+    draw_month = draw_years * 12
+    repay_month = repay_years * 12
+    length_month = draw_month + repay_month
+    cur_principal = 0
+    cur_rate = rate
+
+    summary = {}
+    acc_interest = 0
+
+    for i in range(1, length_month + 1):
+        cur_principal = cur_principal + line_schedule.get(i, 0)
+        cur_principal = min(cur_principal, credit_line)
+
+        if cur_principal == 0:
+            summary[i] = get_heloc_monthly_summary(0, 0, acc_interest, 0)
+            continue
+
+        if i in rate_predict_override:
+            cur_rate = rate_predict_override.get(i)
+
+        if i <= draw_month:
+            # interest only
+            payment = get_interest(cur_principal, rate)
+            payment_interest = payment
+            acc_interest = acc_interest + payment_interest
+            monthly_summary = get_heloc_monthly_summary(payment, payment_interest, acc_interest, cur_principal)
+        else:
+            payment = calculate_mortage_monthly_payment(cur_principal, cur_rate, length_month - i)
+            payment_interest = get_interest(cur_principal, rate)
+            acc_interest = acc_interest + payment_interest
+            monthly_summary = get_heloc_monthly_summary(payment, payment_interest, acc_interest, cur_principal)
+
+        summary[i] = monthly_summary
+
+    return summary
+
+# heloc_schedule = {
+#     1: 170000,
+#     3: -50000,
+#     4: -50000,
+#     5: -70000,
+# }
+#
+#
+# pprint.pprint(heloc_calculater(170000, 0.065, heloc_schedule, 10, 15, {}))
+
 def mortgate_calculater(price, down_payment_amount, apr, length, is_year=False, extra_principal_paid: dict = {}):
     """
     :params: length: length of loan time
@@ -48,14 +130,14 @@ def mortgate_calculater(price, down_payment_amount, apr, length, is_year=False, 
     remain_principal = price - down_payment_amount
     print(f'Down Payment: {price - remain_principal}')
     monthly_rate = (apr / 100) / 12
-    number_of_payment = length * 12 if is_year else length
 
+    number_of_payment = length * 12 if is_year else length
     mortgate_details = []
     interest_pay_so_far = 0
-    the_nth_month = 1
+    the_nth_month = 0
 
-    while number_of_payment > 0:
-        monthly_payment = calculate_mortage_monthly_payment(remain_principal, monthly_rate, number_of_payment)
+    while the_nth_month < number_of_payment:
+        monthly_payment = calculate_mortage_monthly_payment(remain_principal, monthly_rate, number_of_payment - the_nth_month)
         interest_paid = round(remain_principal * monthly_rate, 2)
         principal_paid = round(monthly_payment - interest_paid, 2)
         remain_principal = remain_principal - principal_paid - extra_principal_paid.get(the_nth_month, 0)
@@ -63,6 +145,7 @@ def mortgate_calculater(price, down_payment_amount, apr, length, is_year=False, 
         interest_pay_so_far = interest_pay_so_far + interest_paid
 
         mortgate_month_detail = {
+            'nth': the_nth_month + 1,
             'payment': monthly_payment,
             'interest_paid': interest_paid,
             'principal_paid': principal_paid,
@@ -72,8 +155,6 @@ def mortgate_calculater(price, down_payment_amount, apr, length, is_year=False, 
 
         mortgate_details.append(mortgate_month_detail)
         month_detail_list[the_nth_month] = mortgate_month_detail
-
-        number_of_payment = number_of_payment - 1
         the_nth_month = the_nth_month + 1
 
     return mortgate_details
@@ -191,31 +272,41 @@ def cal_income(house_info, loan_info, extra_principal_paid=None, month=25):
     return res_list
 
 
+def read_house_info(config_file):
+    with open(config_file, "r") as f:
+        house_info = json.load(f)
+
+    return house_info
+
+
 def main():
+
+    md = mortgate_calculater(660000, 0, 4.875, 30, is_year=True)
+
+    for i in md:
+        pprint.pprint(i)
+
     house_info = {
-        "price": 900000.0,
-        "property_tax": 8713,
-        "insurance": 2400,
+        "price": 880000.0,
+        "property_tax": 7007,
+        "insurance": 3500,
         "monthly_income": 5300,
         "hoa": 0,
     }
 
     loan_info = {
-        "interest_rate": 5.75,
-        "down_payment_amout": 30000,
+        "interest_rate": 4.875,
+        "down_payment_amout": 220000,
         "loan_time": 30,
         "down_payment_type": 'amount',
         "down_payment_percent": 0,
     }
 
     extra_principal_paid = {
-        2: 50000,
-        3: 50000,
-        4: 50000,
-        5: 50000,
-        9: 50000,
-        10: 50000,
-        11: 50000,
+        # 5: 30000,
+        # 9: 50000,
+        # 10: 50000,
+        # 11: 50000,
     }
 
     res_list = cal_income(

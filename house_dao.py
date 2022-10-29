@@ -15,11 +15,11 @@ VERSION_NUM = 1
 HOUSE_INFO_DATA_SCHEMA = {
     "version": int,
     "id": str,
-    "listing_start_date": str,
+    "listing-start-date": str,
     "address": str,
     "city": str,
     "zip-code": str,
-    "listing_price": float,
+    "listing-price": float,
     "type": str,
     "hoa": float,
     "fully-own": str,
@@ -32,14 +32,14 @@ HOUSE_INFO_DATA_SCHEMA = {
     "property-tax": float,
     "maintenance-cost": float,
     "parking-type": str,
-    "inhouse-laundry": bool,
+    "in-unit-laundry": bool,
     "separate-laundry": str,
     "washer-dryer-brand": str,
     "fridge-brand": str,
     "stove-brand": str,
     "dish-washer-brand": str,
     "pets": bool,
-    "year_build": int,
+    "year-build": int,
     "number-of-tenant": int,
     "number-of-unit": int,
     "unit-detail": str,
@@ -270,3 +270,21 @@ class HouseInfoTest(unittest.TestCase):
         print(h1_do.get_all())
 
         jp.add(h1_do)
+
+        h2 = {
+            "address": "19-21 wolcott street",
+            "city": "malden",
+            "zip-code": "02148",
+            "type": "multi-family-3",
+            "fully-own": True,
+            "noi": 7000,
+            "listing-price": 990000,
+            "property-tax": 8679.58,
+            "maintenance-cost": 1200,
+            "parking-type": "driveway",
+            "number-of-unit": 3,
+        }
+
+        h2_dao = HouseInfoDao(h2)
+
+        jp.add(h2_dao)

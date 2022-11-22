@@ -135,6 +135,7 @@ def mortgate_calculater(price, down_payment_amount, apr, length, is_year=False, 
     mortgate_details = []
     interest_pay_so_far = 0
     the_nth_month = 0
+    paid_so_far = 0
 
     while the_nth_month < number_of_payment:
         monthly_payment = calculate_mortage_monthly_payment(remain_principal, monthly_rate, number_of_payment - the_nth_month)
@@ -143,6 +144,7 @@ def mortgate_calculater(price, down_payment_amount, apr, length, is_year=False, 
         remain_principal = remain_principal - principal_paid - extra_principal_paid.get(the_nth_month, 0)
         principal_paid = monthly_payment - interest_paid
         interest_pay_so_far = interest_pay_so_far + interest_paid
+        paid_so_far = paid_so_far + monthly_payment
 
         mortgate_month_detail = {
             'nth': the_nth_month + 1,
@@ -151,6 +153,7 @@ def mortgate_calculater(price, down_payment_amount, apr, length, is_year=False, 
             'principal_paid': principal_paid,
             'remaining_principal': remain_principal,
             'interest_pay_so_far': interest_pay_so_far,
+            'paid_so_far': paid_so_far,
         }
 
         mortgate_details.append(mortgate_month_detail)
@@ -281,11 +284,11 @@ def read_house_info(config_file):
 
 def main():
 
-    md = mortgate_calculater(660000, 0, 4.875, 30, is_year=True)
+    md = mortgate_calculater(70000, 0, 5, 10, is_year=True)
 
     for i in md:
         pprint.pprint(i)
-
+    return
     house_info = {
         "price": 880000.0,
         "property_tax": 7007,
